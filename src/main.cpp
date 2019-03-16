@@ -3,7 +3,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <bits/stdc++.h>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
@@ -82,8 +81,6 @@ int main() {
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
 
-          std::cout << typeid(previous_path_x).name() << std::endl;
-
           // Previous path's end s and d values 
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
@@ -94,19 +91,48 @@ int main() {
 
           json msgJson;
 
-          CarState carState(car_x, car_y, car_yaw);
-          std::vector<double> prev_path_x = previous_path_x.get<std::vector<double>>();
-          std::vector<double> prev_path_y = previous_path_y.get<std::vector<double>>();
-
-
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
-
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-          generatePath(carState, prev_path_x, prev_path_y, next_x_vals, next_y_vals);
+
+          // Prediction of vehicle positions
+          int noVehicles = sensor_fusion.size();
+          double timePred_s = 2.0; // predict time for each vehicle
+
+          std::vector<StreetVehicleState> streetVehStateSet;
+          streetVehStateSet.reserve(noVehicles);
+          int id;
+          double x, y, vx, vy, s, d;
+          for(int i = 0; i < noVehicles; ++i)
+          {
+        	  id = sensor_fusion[0];
+        	  x  = sensor_fusion[1];
+        	  y  = sensor_fusion[2];
+        	  vx = sensor_fusion[3];
+        	  vy = sensor_fusion[4];
+        	  s  = sensor_fusion[5];
+        	  d  = sensor_fusion[6];
+        	  StreetVehicleState streetVehState{id, x, y, vx, vy, s, d};
+        	  streetVehStateSet.push_back(streetVehState);
+          }
+          predictVehiclePosition(timePred_s, streetVehStateSet);
+
+
+          // Behavior planning
+          TrajectoryGoal traj_goal_position(4, 0.0);
+          traj_goal_position = planBehavior(streetVehStateSet);
+
+
+          // Trajectory generation of the ego vehicle
+          CarState carState(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+          std::vector<double> prev_path_x = previous_path_x.get<std::vector<double>>();
+          std::vector<double> prev_path_y = previous_path_y.get<std::vector<double>>();
+          std::vector<double> next_x_vals;
+          std::vector<double> next_y_vals;
+
+          generatePath(carState, traj_goal_position,
+        		  	   prev_path_x, prev_path_y, next_x_vals, next_y_vals);
 
 
           msgJson["next_x"] = next_x_vals;

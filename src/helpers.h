@@ -9,16 +9,40 @@
 using std::string;
 using std::vector;
 
+// States of ego vehicle
 struct CarState
 {
-	CarState(double car_x_val, double car_y_val, double car_yaw_val):
-		car_x(car_x_val), car_y(car_y_val), car_yaw(car_yaw_val) {}
+	CarState(double car_x_val, double car_y_val, double car_s_val, double car_d_val,
+			double car_yaw_val, double car_speed_val):
+		car_x(car_x_val), car_y(car_y_val), car_s(car_s_val), car_d(car_d_val),
+		car_yaw(car_yaw_val), car_speed(car_speed_val) {}
 	~CarState() {}
 
 	double car_x;
 	double car_y;
+	double car_s;
+	double car_d;
 	double car_yaw;
+	double car_speed;
 };
+
+// State of other vehicle on the street
+struct StreetVehicleState
+{
+	StreetVehicleState(int id, double x, double y, double vx, double vy, double s, double d):
+		id_n(id), x_m(x), y_m(y), vx_mps(vx), vy_mps(vy), s_m(s), d_m(d) {}
+	~StreetVehicleState() {}
+
+	int id_n;
+	double x_m;
+	double y_m;
+	double vx_mps;
+	double vy_mps;
+	double s_m;
+	double d_m;
+};
+
+using TrajectoryGoal = std::vector<double>;
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -165,8 +189,8 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   return {x,y};
 }
 
-void generatePath(CarState carState,
-				  const std::vector<double> previous_path_x, const std::vector<double> previous_path_y,
+void generatePath(const CarState& carState, const TrajectoryGoal& goal,
+				  const std::vector<double>& previous_path_x, const std::vector<double>& previous_path_y,
 		          std::vector<double>& next_x_vals, std::vector<double>& next_y_vals)
 {
 	double pos_x;
@@ -179,11 +203,14 @@ void generatePath(CarState carState,
 	  next_y_vals.push_back(previous_path_y[i]);
 	}
 
-	if (path_size == 0) {
+	if (path_size == 0)
+	{
 	  pos_x = carState.car_x;
 	  pos_y = carState.car_y;
 	  angle = deg2rad(carState.car_yaw);
-	} else {
+	}
+	else
+	{
 	  pos_x = previous_path_x[path_size-1];
 	  pos_y = previous_path_y[path_size-1];
 
@@ -193,7 +220,8 @@ void generatePath(CarState carState,
 	}
 
 	double dist_inc = 0.5;
-	for (int i = 0; i < 50-path_size; ++i) {
+	for (int i = 0; i < 50-path_size; ++i)
+	{
 	  next_x_vals.push_back(pos_x+(dist_inc)*cos(angle+(i+1)*(pi()/100)));
 	  next_y_vals.push_back(pos_y+(dist_inc)*sin(angle+(i+1)*(pi()/100)));
 	  pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
@@ -201,5 +229,28 @@ void generatePath(CarState carState,
 	}
 }
 
+/*
+ * @brief Predict the positions of other vehicles on the adjacent lanes
+ * @input streetVehStateSet
+ * @input timePredict
+ * @output predicted positions of vehicles on the same side of the street
+ */
+void predictVehiclePosition(const double timePredict, std::vector<StreetVehicleState>& streetVehStateSet)
+{
+
+
+}
+
+/*
+ * @brief Calculate the goal position for the trajectory to be generated
+ * @input predicated positions of street vehicles
+ * @output goal position
+ */
+TrajectoryGoal planBehavior(const std::vector<StreetVehicleState>& streetVehStateSet)
+{
+	TrajectoryGoal goal;
+
+	return goal;
+}
 
 #endif  // HELPERS_H
