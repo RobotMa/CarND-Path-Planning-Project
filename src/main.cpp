@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <bits/stdc++.h>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
@@ -80,6 +81,9 @@ int main() {
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
+
+          std::cout << typeid(previous_path_x).name() << std::endl;
+
           // Previous path's end s and d values 
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
@@ -90,6 +94,11 @@ int main() {
 
           json msgJson;
 
+          CarState carState(car_x, car_y, car_yaw);
+          std::vector<double> prev_path_x = previous_path_x.get<std::vector<double>>();
+          std::vector<double> prev_path_y = previous_path_y.get<std::vector<double>>();
+
+
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
@@ -97,6 +106,7 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+          generatePath(carState, prev_path_x, prev_path_y, next_x_vals, next_y_vals);
 
 
           msgJson["next_x"] = next_x_vals;
