@@ -120,12 +120,12 @@ int main() {
 
 
           // Behavior planning
-          TrajectoryGoal traj_goal_position(4, 0.0);
-          traj_goal_position = planBehavior(streetVehStateSet);
+          // Default to zero velocity and middle lane
+          CarState carState(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+          TrajectoryGoal traj_goal_position = planBehavior(carState, streetVehStateSet);
 
 
           // Trajectory generation of the ego vehicle
-          CarState carState(car_x, car_y, car_s, car_d, car_yaw, car_speed);
           std::vector<double> prev_path_x = previous_path_x.get<std::vector<double>>();
           std::vector<double> prev_path_y = previous_path_y.get<std::vector<double>>();
           std::vector<double> next_x_vals;

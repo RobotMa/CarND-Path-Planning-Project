@@ -10,6 +10,8 @@
 using std::string;
 using std::vector;
 
+const double MAX_SPEED_MPS = 22.0;
+
 // States of ego vehicle
 struct CarState
 {
@@ -43,13 +45,37 @@ struct StreetVehicleState
 	double d_m;
 };
 
+// Lane ID
 enum class Lane : int
 {
 	LEFTLANE = 0,
 	MIDLANE,
-	RIGHTLANE
+	RIGHTLANE,
+	INVALID
 };
-using TrajectoryGoal = std::vector<double>;
+
+// Occupied status of the lanes
+enum class LaneState : int
+{
+	MIDLANE_OPEN = 0,
+	MIDLANE_CLOSED,
+	LEFTLANE_OPEN,
+	LEFTLANE_CLOSED,
+	RIGHTLANE_OPEN,
+	RIGHTLANE_CLOSED,
+	INVALID
+};
+
+struct TrajectoryGoal
+{
+	TrajectoryGoal(double refSpeed_mps, Lane targetLane):
+		ref_speed_mps(refSpeed_mps), target_lane(targetLane){}
+	~TrajectoryGoal() {}
+
+	double ref_speed_mps{};
+	Lane   target_lane{};
+
+};
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -208,6 +234,31 @@ double laneToD(const Lane lane)
 }
 
 /*
+ * @brief Convert d distance into lane ID
+ * @input d : lateral shift
+ * @output Lane ID
+ */
+Lane dToLane(const double d)
+{
+	if(0 < d && d < 4.0)
+	{
+		return Lane::LEFTLANE;
+	}
+	else if (4.0 <= d && d < 8.0)
+	{
+		return Lane::MIDLANE;
+	}
+	else if(8.0 <= d && d < 12.0)
+	{
+		return Lane::RIGHTLANE;
+	}
+	else
+	{
+		return Lane::INVALID;
+	}
+}
+
+/*
  * @brief Generate the final trajectory
  * @input
  * @output Trajectory to follow for next iteration
@@ -222,6 +273,7 @@ void generatePath(const CarState& carState, const TrajectoryGoal& goal,
 		          std::vector<double>& next_x_vals,
 				  std::vector<double>& next_y_vals)
 {
+	static int counter = 0;
 	double pos_x, pos_y, angle;
 	double pos_x2, pos_y2; 			// Predicted history position of the ego vehicle
 	std::vector<double> pos_set_x;	// x of the planned path in vehicle frame
@@ -255,10 +307,24 @@ void generatePath(const CarState& carState, const TrajectoryGoal& goal,
 	pos_set_y.push_back(pos_y);
 
 	// Mock lane status
+	counter++;
 	Lane lane = Lane::LEFTLANE;
-
-	// Mock reference velocity
-	double ref_vel_mps = 20.0;
+//	if (counter < 100)
+//	{
+//		lane = Lane::LEFTLANE;
+//	}
+//	else if (100 <= counter && counter < 200)
+//	{
+//		lane = Lane::MIDLANE;
+//	}
+//	else if (200 <= counter && counter < 300)
+//	{
+//		lane = Lane::RIGHTLANE;
+//	}
+//	else
+//	{
+//		counter = 0;
+//	}
 
 	// Create lookahead way points in global frame based on Frenet frame derivation
 	std::vector<double> lookaheadDistance{30.0, 60.0, 90.0};
@@ -297,7 +363,7 @@ void generatePath(const CarState& carState, const TrajectoryGoal& goal,
 	double x_increment = 0.0;
 	for (int i = 0; i < 50-path_size; ++i)
 	{
-		double n = targetDistance/(.02*ref_vel_mps);
+		double n = targetDistance/(.02*goal.ref_speed_mps);
 		double x_point = x_increment + target_x/n;
 		double y_point = spline(x_point);
 
@@ -333,10 +399,44 @@ void predictVehiclePosition(const double timePredict, std::vector<StreetVehicleS
  * @input predicated positions of street vehicles
  * @output goal position
  */
-TrajectoryGoal planBehavior(const std::vector<StreetVehicleState>& streetVehStateSet)
+TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVehicleState>& streetVehStateSet)
 {
-	TrajectoryGoal goal;
+	TrajectoryGoal goal(carState.car_speed, dToLane(carState.car_d));
 
+	// Initialize all states of adjacent lanes to be open (valid to stay in or make lane change to)
+	std::vector<LaneState> laneStateSet{LaneState::LEFTLANE_OPEN,
+										LaneState::MIDLANE_OPEN,
+										LaneState::RIGHTLANE_OPEN};
+
+	Lane laneEgo = dToLane(carState.car_d);
+	if (laneEgo == Lane::LEFTLANE)
+	{
+		laneStateSet.at(0) = LaneState::LEFTLANE_CLOSED;
+	}
+	else if (laneEgo == Lane::RIGHTLANE)
+	{
+		laneStateSet.at(2) = LaneState::RIGHTLANE_CLOSED;
+	}
+
+	for(const auto& e : streetVehStateSet)
+	{
+		Lane laneVeh = dToLane(e.d_m);
+		double collisionDistance_m = e.s_m - carState.car_s;
+		if(collisionDistance_m >= 0.0 && collisionDistance_m < 8.0 && laneVeh == laneEgo)
+		{
+			laneState.at(static_cast<int>(laneVeh))
+		}
+
+	}
+
+	if(goal.ref_speed_mps < (MAX_SPEED_MPS - 0.1))
+	{
+		goal.ref_speed_mps += 0.01;
+	}
+	else
+	{
+		goal.ref_speed_mps = MAX_SPEED_MPS;
+	}
 	return goal;
 }
 
