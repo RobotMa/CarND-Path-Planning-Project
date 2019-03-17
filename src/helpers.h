@@ -4,7 +4,8 @@
 #include <math.h>
 #include <string>
 #include <vector>
-
+#include <cmath>
+#include "spline.h"
 // for convenience
 using std::string;
 using std::vector;
@@ -42,6 +43,12 @@ struct StreetVehicleState
 	double d_m;
 };
 
+enum class Lane : int
+{
+	LEFTLANE = 0,
+	MIDLANE,
+	RIGHTLANE
+};
 using TrajectoryGoal = std::vector<double>;
 
 // Checks if the SocketIO event has JSON data.
@@ -189,43 +196,123 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   return {x,y};
 }
 
-void generatePath(const CarState& carState, const TrajectoryGoal& goal,
-				  const std::vector<double>& previous_path_x, const std::vector<double>& previous_path_y,
-		          std::vector<double>& next_x_vals, std::vector<double>& next_y_vals)
+/*
+ * @brief Convert lane ID into lateral d distance
+ * @input Lane ID
+ * @output Distance along d
+ */
+double laneToD(const Lane lane)
 {
-	double pos_x;
-	double pos_y;
-	double angle;
+	const double laneWidth = 4.0;
+	return ((static_cast<double>(lane) + 0.5)*laneWidth);
+}
+
+/*
+ * @brief Generate the final trajectory
+ * @input
+ * @output Trajectory to follow for next iteration
+ */
+// TODO: Passing too many arguments into one function is bad and this is due to further clean up
+void generatePath(const CarState& carState, const TrajectoryGoal& goal,
+				  const std::vector<double>& map_waypoints_s,
+				  const std::vector<double>& map_waypoints_x,
+				  const std::vector<double>& map_waypoints_y,
+				  const std::vector<double>& previous_path_x,
+				  const std::vector<double>& previous_path_y,
+		          std::vector<double>& next_x_vals,
+				  std::vector<double>& next_y_vals)
+{
+	double pos_x, pos_y, angle;
+	double pos_x2, pos_y2; 			// Predicted history position of the ego vehicle
+	std::vector<double> pos_set_x;	// x of the planned path in vehicle frame
+	std::vector<double> pos_set_y;	// y of the planned path in vehicle frame
+	next_x_vals.clear();
+	next_y_vals.clear();
+
+	// Set history points of planned path in vehicle frame
 	int path_size = previous_path_x.size();
-
-	for (int i = 0; i < path_size; ++i) {
-	  next_x_vals.push_back(previous_path_x[i]);
-	  next_y_vals.push_back(previous_path_y[i]);
-	}
-
 	if (path_size == 0)
 	{
 	  pos_x = carState.car_x;
 	  pos_y = carState.car_y;
 	  angle = deg2rad(carState.car_yaw);
+	  pos_x2 = pos_x - cos(angle);
+	  pos_y2 = pos_y - sin(angle);
 	}
 	else
 	{
-	  pos_x = previous_path_x[path_size-1];
-	  pos_y = previous_path_y[path_size-1];
+	  pos_x = previous_path_x.at(path_size - 1);
+	  pos_y = previous_path_y.at(path_size - 1);
 
-	  double pos_x2 = previous_path_x[path_size-2];
-	  double pos_y2 = previous_path_y[path_size-2];
+	  pos_x2 = previous_path_x.at(path_size - 2);
+	  pos_y2 = previous_path_y.at(path_size - 2);
 	  angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
 	}
 
-	double dist_inc = 0.5;
+	pos_set_x.push_back(pos_x2);
+	pos_set_x.push_back(pos_x);
+	pos_set_y.push_back(pos_y2);
+	pos_set_y.push_back(pos_y);
+
+	// Mock lane status
+	Lane lane = Lane::LEFTLANE;
+
+	// Mock reference velocity
+	double ref_vel_mps = 20.0;
+
+	// Create lookahead way points in global frame based on Frenet frame derivation
+	std::vector<double> lookaheadDistance{30.0, 60.0, 90.0};
+	for (const auto& e : lookaheadDistance)
+	{
+		std::vector<double> waypoint = getXY(carState.car_s + e, laneToD(lane),
+											   map_waypoints_s,
+											   map_waypoints_x,
+											   map_waypoints_y);
+		pos_set_x.push_back(waypoint.at(0));
+		pos_set_y.push_back(waypoint.at(1));
+	}
+
+	// Transform lookahead points from global frame to vehicle frame for spline interpolation
+	for(int i = 0; i < pos_set_x.size(); ++i)
+	{
+		double shift_x = pos_set_x.at(i) - pos_x;
+		double shift_y = pos_set_y.at(i) - pos_y;
+		pos_set_x.at(i) = shift_x*cos(0 - angle) - shift_y*sin(0 - angle);
+		pos_set_y.at(i) = shift_x*sin(0 - angle) + shift_y*cos(0 - angle);
+	}
+
+	// Path interpolation using spline function
+	tk::spline spline;
+	spline.set_points(pos_set_x, pos_set_y);
+
+	double target_x = 30.0;
+	double target_y = spline(target_x);
+	double targetDistance = std::hypot(target_x, target_y);
+
+	for (int i = 0; i < path_size; ++i) {
+	  next_x_vals.push_back(previous_path_x.at(i));
+	  next_y_vals.push_back(previous_path_y.at(i));
+	}
+
+	double x_increment = 0.0;
 	for (int i = 0; i < 50-path_size; ++i)
 	{
-	  next_x_vals.push_back(pos_x+(dist_inc)*cos(angle+(i+1)*(pi()/100)));
-	  next_y_vals.push_back(pos_y+(dist_inc)*sin(angle+(i+1)*(pi()/100)));
-	  pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
-	  pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
+		double n = targetDistance/(.02*ref_vel_mps);
+		double x_point = x_increment + target_x/n;
+		double y_point = spline(x_point);
+
+		x_increment = x_point;
+		double tmp_x = x_point;
+		double tmp_y = y_point;
+
+		x_point = tmp_x*cos(angle) - tmp_y*sin(angle);
+		y_point = tmp_x*sin(angle) + tmp_y*cos(angle);
+
+		x_point += pos_x;
+		y_point += pos_y;
+
+		next_x_vals.push_back(x_point);
+		next_y_vals.push_back(y_point);
 	}
 }
 

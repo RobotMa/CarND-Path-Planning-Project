@@ -106,13 +106,13 @@ int main() {
           double x, y, vx, vy, s, d;
           for(int i = 0; i < noVehicles; ++i)
           {
-        	  id = sensor_fusion[0];
-        	  x  = sensor_fusion[1];
-        	  y  = sensor_fusion[2];
-        	  vx = sensor_fusion[3];
-        	  vy = sensor_fusion[4];
-        	  s  = sensor_fusion[5];
-        	  d  = sensor_fusion[6];
+        	  id = sensor_fusion[i][0];
+        	  x  = sensor_fusion[i][1];
+        	  y  = sensor_fusion[i][2];
+        	  vx = sensor_fusion[i][3];
+        	  vy = sensor_fusion[i][4];
+        	  s  = sensor_fusion[i][5];
+        	  d  = sensor_fusion[i][6];
         	  StreetVehicleState streetVehState{id, x, y, vx, vy, s, d};
         	  streetVehStateSet.push_back(streetVehState);
           }
@@ -132,6 +132,7 @@ int main() {
           std::vector<double> next_y_vals;
 
           generatePath(carState, traj_goal_position,
+        		  	   map_waypoints_s, map_waypoints_x, map_waypoints_y,
         		  	   prev_path_x, prev_path_y, next_x_vals, next_y_vals);
 
 
