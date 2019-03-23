@@ -15,6 +15,7 @@ The code can be decomposed into three core functions : `predictVehiclePosition`,
 
 `generatePath` function [288 - 397] takes `carState` , `trajectoryGoal` along with other map infomration to generate the trajectories based on previous path, reference speed of the car, and the target lane using `spline.h` function. 
 
+Each function is commented with input/output/description and the state machine part is written in a way that one can infer he state definition from the `Lane` and `LaneState` data structure.
 
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
