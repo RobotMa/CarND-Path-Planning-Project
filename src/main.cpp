@@ -124,11 +124,12 @@ int main() {
           // Behavior planning
           // Default to zero velocity and middle lane
           car_speed /= 2.24;
-          std::cout << "car speed is " << car_speed << std::endl;
           if(previous_path_x.size() > 0) car_s = end_path_s;
           CarState carState(car_x, car_y, car_s, car_d, car_yaw, car_speed);
 
-          TrajectoryGoal traj_goal_position = planBehavior(carState, streetVehStateSet);
+          TrajectoryGoal traj_goal_position = planBehavior(prev_trajectory_goal,
+        		  	  	  	  	  	  	  	  	  	  	  carState, streetVehStateSet);
+          prev_trajectory_goal = traj_goal_position;
 
 
           // Trajectory generation of the ego vehicle
