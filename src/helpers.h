@@ -12,7 +12,7 @@ using std::vector;
 
 // Speed limit equvilant to 49.9 mph
 const double MAX_SPEED_MPS = 22.0;
-const double MAX_ACCEL_MPS2 = 10.0;
+double ref_vel = 0.0;
 
 // States of ego vehicle
 struct CarState
@@ -313,7 +313,6 @@ void generatePath(const CarState& carState, const TrajectoryGoal& goal,
 	for (const auto& e : lookaheadDistance)
 	{
 		std::vector<double> waypoint = getXY(carState.car_s + e, laneToD(goal.target_lane),
-//		std::vector<double> waypoint = getXY(carState.car_s + e, laneToD(Lane::LEFTLANE),
 											   map_waypoints_s,
 											   map_waypoints_x,
 											   map_waypoints_y);
@@ -343,11 +342,10 @@ void generatePath(const CarState& carState, const TrajectoryGoal& goal,
 	  next_y_vals.push_back(previous_path_y.at(i));
 	}
 
-	double ref_vel = carState.car_speed;
-
 	double x_increment = 0.0;
 	for (int i = 0; i < 50-path_size; ++i)
 	{
+		std::cout << goal.ref_accel_mps2 << std::endl;
 		ref_vel += goal.ref_accel_mps2;
 		std::cout << "ref speed is " << ref_vel << std::endl;
 		if(ref_vel > MAX_SPEED_MPS)
@@ -411,22 +409,48 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 	{
 		Lane laneVeh = dToLane(e.d_m);
 		double collisionDistance_m = e.s_m - carState.car_s;
+
+		// Convert from mph to mps
 		if(std::fabs(collisionDistance_m) < 30.0)
 		{
 			if(laneVeh == Lane::LEFTLANE)
 			{
 				laneStateSet.at(0) = LaneState::LEFTLANE_CLOSED;
-				speedLimit.at(0) = std::hypot(e.vx_mps, e.vy_mps);
+				if(laneVeh == laneEgo)
+				{
+					if(collisionDistance_m > 0)
+					{
+						speedLimit.at(0) = std::hypot(e.vx_mps, e.vy_mps);
+					}
+					else
+					{
+						speedLimit.at(0) = MAX_SPEED_MPS;
+					}
+				}
 			}
 			else if(laneVeh == Lane::MIDLANE)
 			{
 				laneStateSet.at(1) = LaneState::MIDLANE_CLOSED;
-				speedLimit.at(1) = std::hypot(e.vx_mps, e.vy_mps);
+				if(collisionDistance_m > 0)
+				{
+					speedLimit.at(1) = std::hypot(e.vx_mps, e.vy_mps);
+				}
+				else
+				{
+					speedLimit.at(1) = MAX_SPEED_MPS;
+				}
 			}
 			else if(laneVeh == Lane::RIGHTLANE)
 			{
 				laneStateSet.at(2) = LaneState::RIGHTLANE_CLOSED;
-				speedLimit.at(2) = std::hypot(e.vx_mps, e.vy_mps);
+				if(collisionDistance_m > 0)
+				{
+					speedLimit.at(2) = std::hypot(e.vx_mps, e.vy_mps);
+				}
+				else
+				{
+					speedLimit.at(2) = MAX_SPEED_MPS;
+				}
 			}
 		}
 	}
@@ -456,6 +480,11 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 		{
 			goal.ref_accel_mps2 -= speedIncrement;
 		}
+		else
+		{
+			goal.ref_accel_mps2 += speedIncrement;
+		}
+
 		goal.target_lane = Lane::MIDLANE;
 		std::cout << "2" << std::endl;
 	}
@@ -465,6 +494,10 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 		if(carState.car_speed > std::min(speedLimit.at(0), (MAX_SPEED_MPS - 0.1)))
 		{
 			goal.ref_accel_mps2 -= speedIncrement;
+		}
+		else
+		{
+			goal.ref_accel_mps2 += speedIncrement;
 		}
 		goal.target_lane = Lane::LEFTLANE;
 		std::cout << "3" << std::endl;
@@ -485,6 +518,11 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 		{
 			goal.ref_accel_mps2 -= speedIncrement;
 		}
+		else
+		{
+			goal.ref_accel_mps2 += speedIncrement;
+		}
+
 		goal.target_lane = laneEgo;
 		std::cout << "5" << std::endl;
 	}
@@ -494,6 +532,10 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 		if(carState.car_speed > std::min(speedLimit.at(1), (MAX_SPEED_MPS - 0.1)))
 		{
 			goal.ref_accel_mps2 -= speedIncrement;
+		}
+		else
+		{
+			goal.ref_accel_mps2 += speedIncrement;
 		}
 		goal.target_lane = Lane::LEFTLANE;
 		std::cout << "6" << std::endl;
@@ -509,7 +551,6 @@ TrajectoryGoal planBehavior(const CarState& carState, const std::vector<StreetVe
 	std::cout << "goal reference acceleration is " << goal.ref_accel_mps2 << std::endl;
 	std::cout << "goal target lane is " << static_cast<int>(goal.target_lane) << std::endl;
 
-//	goal.ref_accel_mps2 = std::max(goal.ref_accel_mps2, MAX_ACCEL_MPS2);
 	return goal;
 }
 

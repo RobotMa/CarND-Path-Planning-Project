@@ -110,7 +110,9 @@ int main() {
         	  x  = sensor_fusion[i][1];
         	  y  = sensor_fusion[i][2];
         	  vx = sensor_fusion[i][3];
+        	  vx /= 2.24;
         	  vy = sensor_fusion[i][4];
+        	  vy /= 2.24;
         	  s  = sensor_fusion[i][5];
         	  d  = sensor_fusion[i][6];
         	  StreetVehicleState streetVehState{id, x, y, vx, vy, s, d};
@@ -121,7 +123,11 @@ int main() {
 
           // Behavior planning
           // Default to zero velocity and middle lane
+          car_speed /= 2.24;
+          std::cout << "car speed is " << car_speed << std::endl;
+          if(previous_path_x.size() > 0) car_s = end_path_s;
           CarState carState(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+
           TrajectoryGoal traj_goal_position = planBehavior(carState, streetVehStateSet);
 
 
