@@ -420,6 +420,8 @@ void predictVehiclePosition(const double timePredict, std::vector<StreetVehicleS
 
 /*
  * @brief Calculate the goal position for the trajectory to be generated
+ * @input previous trajectory goal
+ * @input carState
  * @input predicated positions of street vehicles
  * @output goal position
  */
