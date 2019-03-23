@@ -1,6 +1,21 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
    
+# Code Structure
+A helpers.h file is included which contains the core functionalities the path planning algorithms includding prediction, behavior planning and trajectory generation. In general, the ego vehicle is able to run 9.05 miles without any incident. In addition, the miles v.s. timer ratio is high which means that the average running speed of the ego vehicle is sufficiently high in all scenarios.  
+
+![Path Planning Screen Shot](https://github.com/RobotMa/CarND-Path-Planning-Project/blob/qianli/term3-path-planning.png)
+
+# Descriptions of the code
+The code can be decomposed into three core functions : `predictVehiclePosition`, `planBehavior` and `generatePath`. These three functions are called sequentially and the corresponding data structures are defined to make the main function cleaner and code self-explanatory.
+
+`predictVehiclePosition` function [Line 399 -419] takes the `streetVehcielStateSet` data structure and `predictTime` to predict the stations of all the sensor-fusioned vehicles for the next cycle. 
+
+`planBeahvior` function [Line 421 - 641] takes `carState` data structure, predicted `streetVehicleStateSet` data structure and `prevTrajectoryGoal` data structure to calculate the target lane and target acceleration for the ego vehicle through a state machine based approach. To make the code self-explanatory, two data structures `Lane` and `LaneState` are defined. `Lane` denotes the current lane of the vehicle and `LaneState` deontes the lane-changable state of all the lanes on the road. 
+
+`generatePath` function [288 - 397] takes `carState` , `trajectoryGoal` along with other map infomration to generate the trajectories based on previous path, reference speed of the car, and the target lane using `spline.h` function. 
+
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
 
